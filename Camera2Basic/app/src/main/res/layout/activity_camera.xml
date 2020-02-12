@@ -30,9 +30,16 @@
         app:defaultNavHost="true"
         app:navGraph="@navigation/nav_graph" />
 
+
     <ImageView
         android:id="@+id/imageView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         app:srcCompat="@drawable/silhouette_camera_overlay" />
+
+<!--    <Button-->
+<!--        android:id="@+id/button"-->
+<!--        android:layout_width="wrap_content"-->
+<!--        android:layout_height="wrap_content"-->
+<!--        android:text="Button" />-->
 </FrameLayout>

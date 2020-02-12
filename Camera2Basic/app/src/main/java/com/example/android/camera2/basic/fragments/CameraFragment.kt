@@ -128,6 +128,9 @@ class CameraFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         viewFinder = view as AutoFitSurfaceView
 
+        // TODO If Android older than 6.0, ask for orientation?
+//        relativeOrientation = 90;
+
         view.holder.addCallback(object : SurfaceHolder.Callback {
             override fun surfaceDestroyed(holder: SurfaceHolder) = Unit
 
