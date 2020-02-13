@@ -2,11 +2,16 @@ package com.zenware.guardianrfid.customcamera;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.constraintlayout.widget.ConstraintLayout;
+import androidx.core.content.ContextCompat;
 import androidx.lifecycle.Observer;
 
+import android.Manifest;
 import android.content.Context;
+import android.content.DialogInterface;
+import android.content.pm.PackageManager;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
@@ -50,6 +55,8 @@ public class CustomCameraActivity extends AppCompatActivity {
      */
     private CameraCharacteristics characteristics;
 
+    private int cameraFacing;
+
     /**
      * Detects, characterizes, and connects to a CameraDevice (used for all camera operations)
      */
@@ -88,7 +95,7 @@ public class CustomCameraActivity extends AppCompatActivity {
     /**
      * The @link{CameraDevice} that will be opened.
      */
-    private CameraDevice camera;
+    private CameraDevice cameraDevice;
 
     /**
      * Internal ref. to the ongoing {@link CameraCaptureSession} configured with our parameters.
@@ -104,7 +111,7 @@ public class CustomCameraActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        final View cameraView = findViewById(R.id.lyt_camera);
+        final SurfaceView cameraView = findViewById(R.id.surface_view);
         viewFinder = (AutoFitSurfaceView) cameraView;
 
         viewFinder.getHolder().addCallback(new SurfaceHolder.Callback() {
@@ -148,13 +155,6 @@ public class CustomCameraActivity extends AppCompatActivity {
             }
         });
 
-        relativeOrientation = new OrientationLiveData(getApplicationContext(), characteristics);
-        relativeOrientation.observe(this, new Observer<Integer>() {
-            @Override
-            public void onChanged(Integer relativeOrientation) {
-                Log.d(TAG, "Orientation changed: " + relativeOrientation);
-            }
-        });
 
         try {
 
@@ -165,13 +165,19 @@ public class CustomCameraActivity extends AppCompatActivity {
                 for (String cameraId : cameraManager.getCameraIdList()) {
 
                     characteristics = cameraManager.getCameraCharacteristics(cameraId);
-                    Integer facing = characteristics.get(CameraCharacteristics.LENS_FACING);
-
-//                    if (facing != null && facing.equals(CameraCharacteristics.LENS_FACING_FRONT));
+                    cameraFacing = characteristics.get(CameraCharacteristics.LENS_FACING);
 
                 }
 
             }
+
+            relativeOrientation = new OrientationLiveData(getApplicationContext(), characteristics);
+            relativeOrientation.observe(this, new Observer<Integer>() {
+                @Override
+                public void onChanged(Integer relativeOrientation) {
+                    Log.d(TAG, "Orientation changed: " + relativeOrientation);
+                }
+            });
 
             cameraThread = new HandlerThread("CameraThread");
             cameraThread.start();
@@ -197,7 +203,24 @@ public class CustomCameraActivity extends AppCompatActivity {
      */
     private void initializeCamera() {
 
-//        camera = openCamera()
+        openCamera(cameraManager, String.valueOf(cameraFacing), cameraHandler);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+                                           int[] grantResults) {
+
+        for (int i = 0; i < permissions.length; i++) {
+            if (permissions[i].equals(Manifest.permission.CAMERA) &&
+                    grantResults[i] == PackageManager.PERMISSION_GRANTED) {
+                initializeCamera();
+            } else {
+                // Alert user they must give permission
+                AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                builder.setMessage("Camera permission is required to take photo.");
+                builder.show();
+            }
+        }
 
     }
 
@@ -215,28 +238,96 @@ public class CustomCameraActivity extends AppCompatActivity {
         }, IMMERSIVE_FLAG_TIMEOUT);
     }
 
-//    private CameraDevice openCamera(CameraManager manager, String cameraId, Handler handler) {
+    private void openCamera(CameraManager manager, String cameraId, Handler handler) {
 
-//        try {
-//            manager.openCamera(cameraId, new CameraDevice.StateCallback() {
-//
-//                @Override
-//                public void onOpened(@NonNull CameraDevice camera) {
-//
-//                }
-//
-//                @Override
-//                public void onDisconnected(@NonNull CameraDevice camera) {
-//
-//                }
-//
-//                @Override
-//                public void onError(@NonNull CameraDevice camera, int error) {
-//
-//                }
-//            }, handler);
-//        } catch (CameraAccessException exception) {
-//            Log.e(TAG, "openCamera(): " + exception.getLocalizedMessage());
-//        }
-//    }
+        try {
+
+            if (ContextCompat.checkSelfPermission(getApplicationContext(),
+                    Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+
+                manager.openCamera(cameraId, new CameraDevice.StateCallback() {
+
+
+                    @Override
+                    public void onOpened(@NonNull CameraDevice camera) {
+                        Log.d(TAG, "Camera " + camera.getId() + " Opened");
+                        cameraDevice = camera;
+                    }
+
+                    @Override
+                    public void onDisconnected(@NonNull CameraDevice camera) {
+
+                        Log.w(TAG, "Camera " + camera.getId() + " disconnected.");
+                        finish();
+
+                    }
+
+                    @Override
+                    public void onError(@NonNull CameraDevice camera, int error) {
+
+                        String errorMessage;
+
+                        switch (error) {
+
+                            case ERROR_CAMERA_DEVICE:
+                                errorMessage = "Fatal (device)";
+                                break;
+
+                            case ERROR_CAMERA_DISABLED:
+                                errorMessage = "Device Policy";
+                                break;
+
+                            case ERROR_CAMERA_IN_USE:
+                                errorMessage = "Camera in use";
+                                break;
+
+                            case ERROR_CAMERA_SERVICE:
+                                errorMessage = "Fatal (service)";
+                                break;
+
+                            case ERROR_MAX_CAMERAS_IN_USE:
+                                errorMessage = "Maximum number of cameras in use";
+                                break;
+
+                            default:
+                                errorMessage = "Unknown error";
+                                break;
+
+                        }
+
+                        RuntimeException runtimeException = new RuntimeException("Camera " +
+                                camera.getId() + " error: (" + error + ") " + errorMessage);
+
+                        Log.e(TAG, runtimeException.getMessage(), runtimeException);
+
+                        throw runtimeException;
+
+                    }
+                }, handler);
+
+            } else {
+
+                // Ask for camera permission
+                AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                builder.setMessage("Mobile Command requires the following permissions to be " +
+                        "configured to function correctly.");
+                builder.setPositiveButton("OK", new DialogInterface.OnClickListener()
+                {
+                    @Override public void onClick(DialogInterface dialogInterface, int i)
+                    {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
+                        {
+                            requestPermissions(new String[]{Manifest.permission.CAMERA},
+                                    1);
+                        }
+                    }
+                });
+                builder.show();
+            }
+
+        } catch (CameraAccessException exception) {
+            Log.e(TAG, "openCamera(): " + exception.getLocalizedMessage());
+        }
+    }
+
 }

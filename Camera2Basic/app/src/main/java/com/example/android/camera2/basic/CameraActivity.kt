@@ -32,6 +32,11 @@ class CameraActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_camera)
         container = findViewById(R.id.fragment_container)
+
+        val button: Button = findViewById(R.id.button)
+        button.setOnClickListener {
+            startActivity(Intent(this, CustomCameraActivity::class.java))
+        }
     }
 
     override fun onResume() {
