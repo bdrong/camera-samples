@@ -16,13 +16,22 @@
 
 package com.example.android.camera2.basic
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
 import android.widget.FrameLayout
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import com.zenware.guardianrfid.customcamera.CustomCameraActivity
+import android.app.Activity
+import android.util.Log
+
 
 class CameraActivity : AppCompatActivity() {
 
@@ -33,10 +42,40 @@ class CameraActivity : AppCompatActivity() {
         setContentView(R.layout.activity_camera)
         container = findViewById(R.id.fragment_container)
 
+        val permission = ContextCompat.checkSelfPermission(this,
+                Manifest.permission.CAMERA)
+
+        if (permission != PackageManager.PERMISSION_GRANTED) {
+            Log.i("CameraActivity", "Permission to use camera denied")
+            makeRequest()
+        }
+
         val button: Button = findViewById(R.id.button)
         button.setOnClickListener {
             startActivity(Intent(this, CustomCameraActivity::class.java))
         }
+
+    }
+
+    private fun makeRequest() {
+        ActivityCompat.requestPermissions(this,
+                arrayOf(Manifest.permission.RECORD_AUDIO),
+                1234)
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>,
+                                            grantResults: IntArray) {
+
+        for (i in permissions.indices) {
+            if (permissions[i] == Manifest.permission.CAMERA && grantResults[i] == PackageManager.PERMISSION_GRANTED) {
+            } else {
+                // Alert user they must give permission
+                val builder = AlertDialog.Builder(this)
+                builder.setMessage("Camera permission is required to take photo.")
+                builder.show()
+            }
+        }
+
     }
 
     override fun onResume() {
@@ -46,6 +85,7 @@ class CameraActivity : AppCompatActivity() {
         container.postDelayed({
             container.systemUiVisibility = FLAGS_FULLSCREEN
         }, IMMERSIVE_FLAG_TIMEOUT)
+
     }
 
     companion object {

@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">CustomCamera</string>
+    <string name="take_picture">TAKE PICTURE</string>
 </resources>
